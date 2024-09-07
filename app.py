@@ -1,4 +1,8 @@
-
+import os
+import streamlit as st
+import PyPDF2
+from io import BytesIO
+from groq import Groq  # Assuming you're using Groq for API requests
 # Get API key from Streamlit secrets
 api_key = st.secrets["api_key"]
 
