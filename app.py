@@ -2,8 +2,10 @@ import os
 import streamlit as st
 import PyPDF2
 from io import BytesIO
+from groq import Groq  # Assuming you're using Groq for API requests
 
-api_key= st.secrets["api_key"]
+# Get API key from Streamlit secrets
+api_key = st.secrets["api_key"]
 
 # Function to extract text from PDF and limit token usage
 def extract_text_from_pdf(pdf_file, limit=10000):
@@ -36,12 +38,8 @@ if uploaded_file is not None:
     user_query = st.text_input("Enter your question about the content of the PDF")
 
     if user_query and st.button("Get Answer"):
-        # Set up the environment variable
-        # os.environ["GROQ_API_KEY"]
-        api_key = os.environ.get("api_key")
-
         if api_key is None:
-            st.error("The environment variable 'GROQ_API_KEY' is not set")
+            st.error("The API key is not set")
         else:
             # Initialize the Groq client
             client = Groq(api_key=api_key)
