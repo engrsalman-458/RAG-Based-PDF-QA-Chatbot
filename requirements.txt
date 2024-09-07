@@ -1,0 +1,5 @@
+os
+streamlit
+from groq import Groq
+PyPDF2
+from io import BytesIO
