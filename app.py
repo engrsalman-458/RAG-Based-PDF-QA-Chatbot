@@ -3,7 +3,7 @@ import streamlit as st
 import PyPDF2
 from io import BytesIO
 
-API_KEY= st.secrets["API_KEY"]
+api_key= st.secrets["api_key"]
 
 # Function to extract text from PDF and limit token usage
 def extract_text_from_pdf(pdf_file, limit=10000):
@@ -38,7 +38,7 @@ if uploaded_file is not None:
     if user_query and st.button("Get Answer"):
         # Set up the environment variable
         # os.environ["GROQ_API_KEY"]
-        api_key = os.environ.get("API_KEY")
+        api_key = os.environ.get("api_key")
 
         if api_key is None:
             st.error("The environment variable 'GROQ_API_KEY' is not set")
