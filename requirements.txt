@@ -1,5 +1,5 @@
 os
-streamlit
+streamlit as st
 PyPDF2
 io 
 BytesIO
