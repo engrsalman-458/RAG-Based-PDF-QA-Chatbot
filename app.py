@@ -22,7 +22,7 @@ def extract_text_from_pdf_in_chunks(pdf_file, token_limit=8000):
     return text_chunks
 
 # Streamlit UI
-st.title("RAG Based PDF Question Answering and Summarization")
+st.title("RAG Based PDF Question Answering and Summarization AI Chatbot")
 
 # PDF File Upload
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
@@ -32,12 +32,12 @@ if uploaded_file is not None:
     with st.spinner("Extracting text from the PDF..."):
         pdf_chunks = extract_text_from_pdf_in_chunks(BytesIO(uploaded_file.read()))
 
-    st.success("Text extracted and chunked successfully!")
+    #st.success("Text extracted and chunked successfully!")
 
     # Display the extracted text (optional)
-    if st.checkbox("Show extracted PDF text"):
-        st.write("Showing first chunk of text (for brevity):")
-        st.write(pdf_chunks[0])  # Display the first chunk for preview
+    #if st.checkbox("Show extracted PDF text"):
+     #   st.write("Showing first chunk of text (for brevity):")
+      #  st.write(pdf_chunks[0])  # Display the first chunk for preview
 
     # Option to summarize the PDF
     if st.button("Summarize PDF"):
