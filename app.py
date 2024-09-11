@@ -51,11 +51,12 @@ if uploaded_file is not None:
 
             try:
                 response_content = ""
-                
+                previous_context = ""
+
                 # Iterate over chunks and make a request for each one
                 for chunk in pdf_chunks:
-                    # Combine the current chunk and the user's query
-                    context = f"Here is the content of the PDF: {chunk}\n\nUser's question: {user_query}"
+                    # Combine the previous context and the current chunk and the user's query
+                    context = f"Here is the content of the PDF: {previous_context + chunk}\n\nUser's question: {user_query}"
 
                     # Make a request to the chat completions endpoint with the PDF context and user input
                     with st.spinner("Generating response..."):
@@ -72,9 +73,14 @@ if uploaded_file is not None:
                             ],
                             model="llama3-8b-8192",
                         )
-                        
+
                         # Append the response from the current chunk
                         response_content += chat_completion.choices[0].message.content + "\n"
+
+                        # Update previous_context by adding the current chunk, up to the token limit
+                        previous_context += chunk
+                        if len(previous_context) > 8000:
+                            previous_context = previous_context[-8000:]  # Keep the last 8000 characters
                 
                 st.success("Response generated successfully!")
                 st.write("Response:", response_content)
