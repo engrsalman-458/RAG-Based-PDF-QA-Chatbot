@@ -75,7 +75,7 @@ if uploaded_file is not None:
                         summary_content += chat_completion.choices[0].message.content + "\n"
 
                 st.success("Summary generated successfully!")
-                st.write("PDF Summary:", summary_content)
+                st.write(summary_content)
                 
             except Exception as e:
                 st.error(f"An error occurred: {e}")
