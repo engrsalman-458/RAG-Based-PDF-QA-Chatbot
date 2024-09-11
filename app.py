@@ -22,7 +22,7 @@ def extract_text_from_pdf_in_chunks(pdf_file, token_limit=8000):
     return text_chunks
 
 # Streamlit UI
-st.title("RAG Based PDF Question Answering")
+st.title("RAG Based PDF Question Answering and Summarization")
 
 # PDF File Upload
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
@@ -38,6 +38,47 @@ if uploaded_file is not None:
     if st.checkbox("Show extracted PDF text"):
         st.write("Showing first chunk of text (for brevity):")
         st.write(pdf_chunks[0])  # Display the first chunk for preview
+
+    # Option to summarize the PDF
+    if st.button("Summarize PDF"):
+        if api_key is None:
+            st.error("The API key is not set")
+        else:
+            # Initialize the Groq client
+            client = Groq(api_key=api_key)
+
+            try:
+                summary_content = ""
+                
+                # Iterate over chunks and request a summary for each
+                for chunk in pdf_chunks:
+                    # Create a prompt to summarize the current chunk
+                    context = f"Here is a portion of the PDF: {chunk}\n\nPlease provide a short summary of this text."
+
+                    # Make a request to the chat completions endpoint with the PDF chunk
+                    with st.spinner("Generating summary..."):
+                        chat_completion = client.chat.completions.create(
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": "You are an assistant that summarizes text from a PDF.",
+                                },
+                                {
+                                    "role": "user",
+                                    "content": context,
+                                }
+                            ],
+                            model="llama3-8b-8192",
+                        )
+
+                        # Append the summary from the current chunk
+                        summary_content += chat_completion.choices[0].message.content + "\n"
+
+                st.success("Summary generated successfully!")
+                st.write("PDF Summary:", summary_content)
+                
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
 
     # Prompt the user for a query
     user_query = st.text_input("Enter your question about the content of the PDF")
