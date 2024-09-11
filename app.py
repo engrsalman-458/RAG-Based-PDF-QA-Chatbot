@@ -3,11 +3,11 @@ import streamlit as st
 import PyPDF2
 from io import BytesIO
 from groq import Groq  # Assuming you're using Groq for API requests
+
 # Get API key from Streamlit secrets
 api_key = st.secrets["api_key"]
 
-# Function to extract text from PDF and limit token usage
-
+# Function to extract text from PDF and split into chunks based on token limit
 def extract_text_from_pdf_in_chunks(pdf_file, token_limit=8000):
     reader = PyPDF2.PdfReader(pdf_file)
     text = ""
@@ -21,7 +21,6 @@ def extract_text_from_pdf_in_chunks(pdf_file, token_limit=8000):
     
     return text_chunks
 
-
 # Streamlit UI
 st.title("RAG Based PDF Question Answering")
 
@@ -31,13 +30,14 @@ uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 if uploaded_file is not None:
     # Extract text from the uploaded PDF file
     with st.spinner("Extracting text from the PDF..."):
-        pdf_text = extract_text_from_pdf(BytesIO(uploaded_file.read()))
+        pdf_chunks = extract_text_from_pdf_in_chunks(BytesIO(uploaded_file.read()))
 
-    st.success("Text extracted successfully!")
+    st.success("Text extracted and chunked successfully!")
 
     # Display the extracted text (optional)
     if st.checkbox("Show extracted PDF text"):
-        st.write(pdf_text)
+        st.write("Showing first chunk of text (for brevity):")
+        st.write(pdf_chunks[0])  # Display the first chunk for preview
 
     # Prompt the user for a query
     user_query = st.text_input("Enter your question about the content of the PDF")
@@ -49,29 +49,35 @@ if uploaded_file is not None:
             # Initialize the Groq client
             client = Groq(api_key=api_key)
 
-            # Combine the PDF text and the user's query
-            context = f"Here is the content of the PDF: {pdf_text}\n\nUser's question: {user_query}"
-
-            # Make a request to the chat completions endpoint with the PDF context and user input
             try:
-                with st.spinner("Generating response..."):
-                    chat_completion = client.chat.completions.create(
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": "You are an assistant that answers questions based on PDF content.",
-                            },
-                            {
-                                "role": "user",
-                                "content": context,
-                            }
-                        ],
-                        model="llama3-8b-8192",
-                    )
+                response_content = ""
+                
+                # Iterate over chunks and make a request for each one
+                for chunk in pdf_chunks:
+                    # Combine the current chunk and the user's query
+                    context = f"Here is the content of the PDF: {chunk}\n\nUser's question: {user_query}"
 
-                    # Display the response
-                    response_content = chat_completion.choices[0].message.content
-                    st.success("Response generated successfully!")
-                    st.write("Response:", response_content)
+                    # Make a request to the chat completions endpoint with the PDF context and user input
+                    with st.spinner("Generating response..."):
+                        chat_completion = client.chat.completions.create(
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": "You are an assistant that answers questions based on PDF content.",
+                                },
+                                {
+                                    "role": "user",
+                                    "content": context,
+                                }
+                            ],
+                            model="llama3-8b-8192",
+                        )
+                        
+                        # Append the response from the current chunk
+                        response_content += chat_completion.choices[0].message.content + "\n"
+                
+                st.success("Response generated successfully!")
+                st.write("Response:", response_content)
+                
             except Exception as e:
                 st.error(f"An error occurred: {e}")
