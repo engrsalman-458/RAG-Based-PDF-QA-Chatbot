@@ -7,13 +7,13 @@ from groq import Groq  # Assuming you're using Groq for API requests
 api_key = st.secrets["api_key"]
 
 # Function to extract text from PDF and limit token usage
-def extract_text_from_pdf(pdf_file, limit=10000):
+def extract_text_from_pdf(pdf_file):
     reader = PyPDF2.PdfReader(pdf_file)
     text = ""
     for page in reader.pages:
         text += page.extract_text()
-        if len(text) > limit:  # Limit the length of extracted text
-            break
+      #  if len(text) > limit:  # Limit the length of extracted text
+         #   break
     return text
 
 # Streamlit UI
