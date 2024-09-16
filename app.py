@@ -69,7 +69,7 @@ if uploaded_file is not None:
                                 }
                             ],
                             model="llama3-8b-8192",
-                            max_tokens=200
+                            max_tokens=150
                         )
 
                         # Append the summary from the current chunk
