@@ -21,45 +21,6 @@ def extract_text_from_pdf_in_chunks(pdf_file, token_limit=8000):
     
     return text_chunks
 
-# Function to summarize the PDF chunks within a word limit
-def summarize_pdf_chunks(client, pdf_chunks):
-    summary_content = ""
-
-    for chunk in pdf_chunks:
-        # Modify the context to ask for a summary with a word limit
-        context = f"Here is a portion of the PDF: {chunk}\n\nPlease provide a concise summary between 50 to 100 words."
-
-        # Make a request to the chat completions endpoint
-        with st.spinner("Generating summary..."):
-            chat_completion = client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an assistant that summarizes text from a PDF in a concise manner, with summaries limited to 50-100 words.",
-                    },
-                    {
-                        "role": "user",
-                        "content": context,
-                    }
-                ],
-                model="llama3-8b-8192",
-                max_tokens=200  # You can adjust this if needed
-            )
-
-            # Retrieve the summary and ensure it fits within 50-100 words
-            summary = chat_completion.choices[0].message.content.strip()
-            words = summary.split()
-
-            if len(words) > 100:
-                summary = " ".join(words[:100]) + "..."
-            elif len(words) < 50:
-                summary += " (The summary is below 50 words, please provide a longer summary for completeness.)"
-            
-            # Append the processed summary
-            summary_content += summary + "\n"
-    
-    return summary_content
-
 # Streamlit UI
 st.title("RAG Based PDF Question Answering and Summarization AI Chatbot")
 
@@ -71,6 +32,13 @@ if uploaded_file is not None:
     with st.spinner("Extracting text from the PDF..."):
         pdf_chunks = extract_text_from_pdf_in_chunks(BytesIO(uploaded_file.read()))
 
+    #st.success("Text extracted and chunked successfully!")
+
+    # Display the extracted text (optional)
+    #if st.checkbox("Show extracted PDF text"):
+     #   st.write("Showing first chunk of text (for brevity):")
+      #  st.write(pdf_chunks[0])  # Display the first chunk for preview
+
     # Option to summarize the PDF
     if st.button("Summarize PDF"):
         if api_key is None:
@@ -80,9 +48,33 @@ if uploaded_file is not None:
             client = Groq(api_key=api_key)
 
             try:
-                # Summarize the PDF chunks with a 50-100 word limit
-                summary_content = summarize_pdf_chunks(client, pdf_chunks)
+                summary_content = ""
                 
+                # Iterate over chunks and request a summary for each
+                for chunk in pdf_chunks:
+                    # Create a prompt to summarize the current chunk
+                    context = f"Here is a portion of the PDF: {chunk}\n\nPlease provide a short summary of this text."
+
+                    # Make a request to the chat completions endpoint with the PDF chunk
+                    with st.spinner("Generating summary..."):
+                        chat_completion = client.chat.completions.create(
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": "You are an assistant that summarizes text from a PDF.",
+                                },
+                                {
+                                    "role": "user",
+                                    "content": context,
+                                }
+                            ],
+                            model="llama3-8b-8192",
+                    
+                        )
+
+                        # Append the summary from the current chunk
+                        summary_content += chat_completion.choices[0].message.content + "\n"
+
                 st.success("Summary generated successfully!")
                 st.write(summary_content)
                 
