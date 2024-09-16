@@ -1,53 +1,68 @@
 import os
 import streamlit as st
 import PyPDF2
+import time  # For implementing a retry mechanism
 from io import BytesIO
 from groq import Groq  # Assuming you're using Groq for API requests
 
 # Get API key from Streamlit secrets
 api_key = st.secrets["api_key"]
 
-# Function to extract text from PDF
-def extract_text_from_pdf(pdf_file):
+# Function to extract text from PDF and split into smaller chunks
+def extract_text_from_pdf_in_chunks(pdf_file, token_limit=3000):
     reader = PyPDF2.PdfReader(pdf_file)
     text = ""
     for page in reader.pages:
         text += page.extract_text()
-    
-    return text
 
-# Function to summarize the entire PDF within a word limit
-def summarize_pdf(client, pdf_text):
-    # Modify the context to ask for a summary with a word limit
-    context = f"Here is the content of a PDF: {pdf_text}\n\nPlease provide a concise summary between 50 to 100 words."
+    # Split text into smaller chunks based on a reduced token limit
+    text_chunks = []
+    for i in range(0, len(text), token_limit):
+        text_chunks.append(text[i:i+token_limit])
 
-    # Make a request to the chat completions endpoint
-    with st.spinner("Generating summary..."):
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are an assistant that summarizes text from a PDF in a concise manner, with summaries limited to 50-100 words.",
-                },
-                {
-                    "role": "user",
-                    "content": context,
-                }
-            ],
-            model="llama3-8b-8192",
-            max_tokens=200  # Limit tokens to ensure a concise response
-        )
+    return text_chunks
 
-        # Retrieve the summary and ensure it fits within 50-100 words
-        summary = chat_completion.choices[0].message.content.strip()
-        words = summary.split()
+# Function to summarize PDF chunks with retry for rate limit
+def summarize_pdf_with_retry(client, pdf_chunks, word_limit=100, retry_delay=180):
+    summary_content = ""
 
-        if len(words) > 100:
-            summary = " ".join(words[:100]) + "..."
-        elif len(words) < 50:
-            summary += " (The summary is below 50 words, please provide a longer summary for completeness.)"
-        
-        return summary
+    for chunk in pdf_chunks:
+        context = f"Here is a portion of the PDF: {chunk}\n\nPlease provide a concise summary between 50 to {word_limit} words."
+
+        while True:
+            try:
+                # Request summarization with the Groq API
+                with st.spinner("Generating summary..."):
+                    chat_completion = client.chat.completions.create(
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": f"You are an assistant that summarizes text from a PDF in a concise manner, with summaries limited to 50-{word_limit} words.",
+                            },
+                            {
+                                "role": "user",
+                                "content": context,
+                            }
+                        ],
+                        model="llama3-8b-8192",
+                        max_tokens=200  # Adjust token limit to control output size
+                    )
+                
+                # Append the summary
+                summary_content += chat_completion.choices[0].message.content + "\n"
+                break  # Exit loop on success
+
+            except Exception as e:
+                error_msg = str(e)
+                if "rate_limit_exceeded" in error_msg:
+                    # Extract wait time from error message (in this case, we hardcode to retry after 3 minutes)
+                    st.warning(f"Rate limit reached. Retrying after {retry_delay//60} minutes...")
+                    time.sleep(retry_delay)  # Wait before retrying
+                else:
+                    st.error(f"An error occurred: {e}")
+                    return ""  # Exit on other errors
+
+    return summary_content
 
 # Streamlit UI
 st.title("RAG Based PDF Question Answering and Summarization AI Chatbot")
@@ -56,9 +71,9 @@ st.title("RAG Based PDF Question Answering and Summarization AI Chatbot")
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
 if uploaded_file is not None:
-    # Extract text from the uploaded PDF file
+    # Extract text from the uploaded PDF file in chunks
     with st.spinner("Extracting text from the PDF..."):
-        pdf_text = extract_text_from_pdf(BytesIO(uploaded_file.read()))
+        pdf_chunks = extract_text_from_pdf_in_chunks(BytesIO(uploaded_file.read()))
 
     # Option to summarize the PDF
     if st.button("Summarize PDF"):
@@ -69,8 +84,8 @@ if uploaded_file is not None:
             client = Groq(api_key=api_key)
 
             try:
-                # Summarize the entire PDF with a 50-100 word limit
-                summary_content = summarize_pdf(client, pdf_text)
+                # Summarize the PDF with retry mechanism in case of rate limit
+                summary_content = summarize_pdf_with_retry(client, pdf_chunks)
                 
                 st.success("Summary generated successfully!")
                 st.write(summary_content)
@@ -93,7 +108,7 @@ if uploaded_file is not None:
                 previous_context = ""
 
                 # Iterate over chunks and make a request for each one
-                for chunk in pdf_text:
+                for chunk in pdf_chunks:
                     # Combine the previous context and the current chunk and the user's query
                     context = f"Here is the content of the PDF: {previous_context + chunk}\n\nUser's question: {user_query}"
 
